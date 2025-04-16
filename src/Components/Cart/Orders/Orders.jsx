@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import emailjs from '@emailjs/browser';
 import { handleSessionStorage } from '../../../utils/utils';
 import { 
     Box, 
@@ -10,79 +9,82 @@ import {
     Chip, 
     Accordion, 
     AccordionSummary, 
-    AccordionDetails,
-    Button 
+    AccordionDetails
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '@clerk/clerk-react';
 
 const Orders = () => {
-    // ...existing state and useEffect...
+    const [orders, setOrders] = useState([]);
+    const { user } = useAuth();
 
-    const sendOrderEmail = (order) => {
-        const itemsList = order.items
-            .map(item => `${item.name} x ${item.quantity} - $${item.subtotal}`)
-            .join('\n');
+    useEffect(() => {
+        const allOrders = handleSessionStorage('get', 'orders') || [];
+        // Filter orders for the current user
+        const userOrders = allOrders.filter(order => order.userId === user?.id);
+        setOrders(userOrders);
+    }, [user]);
 
-        const templateParams = {
-            to_email: 'owner@example.com', // Replace with owner's email
-            from_name: order.customerInfo.fullName,
-            customer_email: order.customerInfo.email,
-            order_id: order.orderId,
-            order_date: new Date(order.orderDate).toLocaleDateString(),
-            items_list: itemsList,
-            subtotal: order.payment.subtotal,
-            tax: order.payment.tax,
-            shipping: order.payment.shipping,
-            total: order.payment.total,
-            shipping_address: order.customerInfo.address,
-            order_status: order.status
-        };
-
-        emailjs.send(
-            'YOUR_SERVICE_ID', // Replace with your EmailJS service ID
-            'YOUR_TEMPLATE_ID', // Replace with your EmailJS template ID
-            templateParams,
-            'YOUR_PUBLIC_KEY' // Replace with your EmailJS public key
-        )
-        .then((result) => {
-            console.log('Email sent successfully:', result.text);
-            alert('Order details sent to owner!');
-        })
-        .catch((error) => {
-            console.error('Failed to send email:', error);
-            alert('Failed to send order details');
-        });
-    };
-
-    // Add this inside your map function where orders are rendered
     return (
         <Box sx={{ p: 4 }}>
-            {/* ...existing code... */}
-            <Grid container spacing={3}>
-                {orders.map((order) => (
-                    <Grid item xs={12} key={order.orderId}>
-                        <Card>
-                            <CardContent>
-                                {/* ...existing order details... */}
-                                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Shipping Address: {order.customerInfo.address}
+            <Typography variant="h4" gutterBottom>
+                Your Orders
+            </Typography>
+            {orders.length === 0 ? (
+                <Card sx={{ mt: 2, p: 3, textAlign: 'center' }}>
+                    <Typography variant="h6" color="text.secondary">
+                        No orders found
+                    </Typography>
+                    <Typography color="text.secondary">
+                        Looks like you haven't placed any orders yet.
+                    </Typography>
+                </Card>
+            ) : (
+                <Grid container spacing={3}>
+                    {orders.map((order) => (
+                        // ...existing code for order items...
+                        <Grid item xs={12} key={order.orderId}>
+                            <Card>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Order #{order.orderId}
                                     </Typography>
-                                    <Button 
-                                        variant="contained" 
-                                        color="primary" 
-                                        size="small"
-                                        onClick={() => sendOrderEmail(order)}
-                                    >
-                                        Send to Owner
-                                    </Button>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
+                                    <Typography color="text.secondary">
+                                        Ordered on: {new Date(order.orderDate).toLocaleDateString()}
+                                    </Typography>
+                                    <Chip 
+                                        label={order.status.toUpperCase()} 
+                                        color={order.status === 'pending' ? 'warning' : 'success'}
+                                        sx={{ mt: 1 }}
+                                    />
+                                    <Accordion sx={{ mt: 2 }}>
+                                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                            <Typography>Order Details</Typography>
+                                        </AccordionSummary>
+                                        <AccordionDetails>
+                                            {order.items.map((item, index) => (
+                                                <Typography key={index}>
+                                                    {item.name} x {item.quantity} - ${item.subtotal}
+                                                </Typography>
+                                            ))}
+                                            <Box sx={{ mt: 2 }}>
+                                                <Typography>Subtotal: ${order.payment.subtotal}</Typography>
+                                                <Typography>Tax: ${order.payment.tax}</Typography>
+                                                <Typography>Shipping: ${order.payment.shipping}</Typography>
+                                                <Typography variant="h6">
+                                                    Total: ${order.payment.total}
+                                                </Typography>
+                                            </Box>
+                                        </AccordionDetails>
+                                    </Accordion>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
         </Box>
     );
 };
+
+export default Orders;
